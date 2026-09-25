@@ -1,0 +1,453 @@
+/* ==========================================================
+   SMHMS System - Main & Responsive CSS (2026 Edition)
+   ========================================================== */
+
+/* Import Font Modern Poppins */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary: #4318ff;
+  --primary-hover: #3311db;
+  --bg-color: #f4f7fe;
+  --card-bg: #ffffff;
+  --text-main: #2b3674;
+  --text-muted: #707eae;
+  --border-color: #e9edf7;
+  
+  /* Status Colors */
+  --success: #05cd99;
+  --warning: #ffb547;
+  --danger: #ee5d50;
+  
+  --shadow-sm: 0px 4px 12px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0px 10px 30px rgba(112, 144, 176, 0.12);
+  --radius: 16px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* ==========================================================
+   NAVBAR
+   ========================================================== */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--card-bg);
+  padding: 15px 30px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 25px;
+}
+
+.navbar .logo {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.5px;
+}
+
+.nav-links {
+  display: flex;
+  list-style: none;
+  gap: 15px;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.nav-links a:hover, .nav-links a.active {
+  color: var(--primary);
+  background: rgba(67, 24, 255, 0.08);
+}
+
+/* ==========================================================
+   HEADER & CLOCK
+   ========================================================== */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.header-title h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.header-title p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.clock-card {
+  background: var(--card-bg);
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  text-align: right;
+  border-left: 4px solid var(--primary);
+}
+
+#liveTime {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+#liveDate {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================
+   MAIN STATUS CARD & BADGES
+   ========================================================== */
+.status-card {
+  background: var(--card-bg);
+  padding: 25px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  margin-bottom: 25px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.status-card h2 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.status-card p {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.status-normal { border-color: var(--success); }
+.status-normal p { color: var(--success); }
+
+.status-warning { border-color: var(--warning); }
+.status-warning p { color: var(--warning); }
+
+.status-danger { border-color: var(--danger); }
+.status-danger p { color: var(--danger); }
+
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+.badge-normal { background: rgba(5, 205, 153, 0.15); color: var(--success); }
+.badge-warning { background: rgba(255, 181, 71, 0.15); color: #d97706; }
+.badge-danger { background: rgba(238, 93, 80, 0.15); color: var(--danger); }
+
+/* ==========================================================
+   GRID CARDS & HARDWARE INFO
+   ========================================================== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.card {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.card-header h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.value-container {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.value-container .value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.value-container .unit {
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.info-list {
+  list-style: none;
+}
+
+.info-list li {
+  font-size: 0.9rem;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-list li:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 25px 0 15px 0;
+  color: var(--text-main);
+}
+
+/* ==========================================================
+   CHARTS & TABLES
+   ========================================================== */
+.chart-card, .table-card {
+  background: var(--card-bg);
+  padding: 25px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 25px;
+}
+
+.chart-header, .table-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chart-container {
+  position: relative;
+  height: 320px;
+  width: 100%;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+table th {
+  background: #f8fbff;
+  color: var(--text-muted);
+  padding: 12px 15px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+table td {
+  padding: 14px 15px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+}
+
+.toolbar {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+/* ==========================================================
+   FORMS, INPUTS & BUTTONS
+   ========================================================== */
+.form-input, .form-select {
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  outline: none;
+  font-size: 0.9rem;
+  background: #f8fbff;
+  transition: all 0.3s ease;
+}
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--primary);
+  background: #fff;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-full {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+/* ==========================================================
+   LOGIN & REGISTER PAGE
+   ========================================================== */
+.login-body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #e9edf7 0%, #f4f7fe 100%);
+}
+
+.login-card {
+  background: var(--card-bg);
+  width: 100%;
+  max-width: 420px;
+  padding: 35px;
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.login-brand {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.input-box {
+  margin-bottom: 15px;
+}
+
+.input-box label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-main);
+}
+
+.alert-box {
+  padding: 10px 15px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 15px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.alert-danger { background: rgba(238, 93, 80, 0.12); color: var(--danger); }
+.alert-success { background: rgba(5, 205, 153, 0.12); color: var(--success); }
+
+/* ==========================================================
+   ANIMATIONS & FOOTER
+   ========================================================== */
+.pulse-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 5px;
+  box-shadow: 0 0 0 0 rgba(5, 205, 153, 0.7);
+  animation: pulse 1.6s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 205, 153, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(5, 205, 153, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 205, 153, 0); }
+}
+
+footer {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 20px 0;
+  margin-top: 20px;
+}
+
+/* ==========================================================
+   RESPONSIVE LAYOUT
+   ========================================================== */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .clock-card {
+    text-align: left;
+    width: 100%;
+  }
+}

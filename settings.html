@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMHMS - System Info</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+    <nav class="navbar">
+      <div class="logo">SMHMS System</div>
+      <ul class="nav-links">
+        <li><a href="index.html">Live Dashboard</a></li>
+        <li><a href="analytics.html">Data Logs</a></li>
+        <li><a href="settings.html" class="active">System Info</a></li>
+        <li><a href="profile.html">Profil Admin</a></li>
+      </ul>
+    </nav>
+
+    <div class="section-title">⚙️ Ambang Nilai Amaran (Threshold Rules)</div>
+    <div class="grid">
+      <div class="card card-gas">
+        <h3>💨 Gas (MQ135)</h3>
+        <ul class="info-list">
+          <li><b>Normal:</b> &lt; 2500 PPM <span class="badge badge-normal">Selamat</span></li>
+          <li><b>Warning:</b> 2500 - 3500 PPM <span class="badge badge-warning">Amaran</span></li>
+          <li><b>Danger:</b> &gt; 3500 PPM <span class="badge badge-danger">Bahaya</span></li>
+        </ul>
+      </div>
+
+      <div class="card card-water">
+        <h3>🌊 Paras Air (HC-SR04)</h3>
+        <ul class="info-list">
+          <li><b>Normal:</b> &gt; 30 cm <span class="badge badge-normal">Selamat</span></li>
+          <li><b>Warning:</b> 15 cm - 30 cm <span class="badge badge-warning">Amaran</span></li>
+          <li><b>Danger:</b> &lt;= 15 cm <span class="badge badge-danger">Bahaya</span></li>
+        </ul>
+      </div>
+
+      <div class="card card-fire">
+        <h3>🔥 Sensor Api (Flame Sensor)</h3>
+        <ul class="info-list">
+          <li><b>Digital Input:</b> Active LOW</li>
+          <li><b>Normal:</b> HIGH (Tiada Api)</li>
+          <li><b>Danger:</b> LOW (Api Dikesan) <span class="badge badge-danger">Bahaya</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section-title">📡 Sambungan Hardware & Database</div>
+    <div class="grid">
+      <div class="card">
+        <h3>🖥️ Perkakasan (Hardware)</h3>
+        <ul class="info-list">
+          <li><b>Microcontroller:</b> ESP32 Dev Module</li>
+          <li><b>Protokol Komunikasi:</b> Wi-Fi / HTTP REST API</li>
+          <li><b>Power Supply:</b> 5V DC Regulator</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>🗄️ Pangkalan Data (MySQL)</h3>
+        <ul class="info-list">
+          <li><b>Database:</b> MySQL (XAMPP Local Server)</li>
+          <li><b>Backend Engine:</b> Python (Flask REST API)</li>
+          <li><b>Status Sambungan:</b> <span class="badge badge-normal"><span class="pulse-dot"></span> Online</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <h2>ℹ️ Maklumat Projek & Ahli Kumpulan</h2>
+      <div class="project-details">
+        <p><b>Tajuk Projek:</b> Smart Multi-Hazard Monitoring System (SMHMS)</p>
+        <p><b>Institusi:</b> Politeknik Malaysia</p>
+        <p><b>Fungsi Utama:</b> Pemantauan risiko banjir, kebocoran gas, dan amaran kebakaran secara real-time dengan integrasi pangkalan data MySQL.</p>
+      </div>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 SMHMS - Smart Multi-Hazard Monitoring System | Politeknik Malaysia</p>
+    </footer>
+  </div>
+
+</body>
+</html>

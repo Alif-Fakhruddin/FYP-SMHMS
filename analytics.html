@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMHMS - Data Logs</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+    <nav class="navbar">
+      <div class="logo">SMHMS System</div>
+      <ul class="nav-links">
+        <li><a href="index.html">Live Dashboard</a></li>
+        <li><a href="analytics.html" class="active">Data Logs</a></li>
+        <li><a href="settings.html">System Info</a></li>
+        <li><a href="profile.html">Profil Admin</a></li>
+      </ul>
+    </nav>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <div>
+          <h2>📋 Rekod Log Bacaan Sensor Terkini</h2>
+          <p class="sub-text">Log daripada pangkalan data MySQL SMHMS.</p>
+        </div>
+        <button id="btnExport" class="btn-primary">📥 Eksport CSV</button>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="🔍 Cari masa / nilai sensor..." class="form-input">
+        <select id="filterStatus" class="form-select">
+          <option value="ALL">Semua Status</option>
+          <option value="NORMAL">NORMAL</option>
+          <option value="WARNING">WARNING</option>
+          <option value="DANGER">DANGER</option>
+        </select>
+      </div>
+      
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Masa (Timestamp)</th>
+              <th>Paras Air</th>
+              <th>Bacaan Gas</th>
+              <th>Status Api</th>
+              <th>Status Keseluruhan</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="table-footer">
+        <small id="entryCount">Menunggu data terbaharu...</small>
+      </div>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 SMHMS - Smart Multi-Hazard Monitoring System | Politeknik Malaysia</p>
+    </footer>
+  </div>
+
+  <script>
+    const LOGS_API_URL = "http://localhost:5000/api/logs?api_key=SMHMS_SECRET_API_KEY_2026";
+    let logHistory = [];
+
+    function renderTable() {
+      const tableBody = document.getElementById("logTableBody");
+      const searchVal = document.getElementById("searchInput").value.toLowerCase();
+      const filterStatus = document.getElementById("filterStatus").value;
+
+      tableBody.innerHTML = "";
+
+      const filteredLogs = logHistory.filter(item => {
+        const matchesSearch = item.created_at.toLowerCase().includes(searchVal) || 
+                              item.water_level.toString().includes(searchVal) || 
+                              item.gas_level.toString().includes(searchVal);
+        const matchesStatus = (filterStatus === "ALL") || (item.status_hazard === filterStatus);
+        return matchesSearch && matchesStatus;
+      });
+
+      if (filteredLogs.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#707eae;">Tiada rekod log ditemui.</td></tr>`;
+        return;
+      }
+
+      filteredLogs.forEach(item => {
+        let badgeClass = "badge-normal";
+        if (item.status_hazard === "WARNING") badgeClass = "badge-warning";
+        if (item.status_hazard === "DANGER") badgeClass = "badge-danger";
+
+        const row = `
+          <tr>
+            <td><b>${item.created_at}</b></td>
+            <td>${item.water_level} cm</td>
+            <td>${item.gas_level} PPM</td>
+            <td>${item.fire_detected == 1 ? '<span class="text-danger"><b>DIKESAN</b></span>' : 'TIADA'}</td>
+            <td><span class="badge ${badgeClass}">${item.status_hazard}</span></td>
+          </tr>
+        `;
+        tableBody.innerHTML += row;
+      });
+
+      document.getElementById("entryCount").innerText = `Menunjukkan ${filteredLogs.length} daripada ${logHistory.length} rekod.`;
+    }
+
+    function exportToCSV() {
+      if (logHistory.length === 0) {
+        alert("Tiada data untuk dieksport!");
+        return;
+      }
+      let csvContent = "data:text/csv;charset=utf-8,Masa,Paras Air (cm),Bacaan Gas (PPM),Status Api,Status Keseluruhan\n";
+      logHistory.forEach(row => {
+        csvContent += `"${row.created_at}","${row.water_level}","${row.gas_level}","${row.fire_detected == 1 ? 'DIKESAN' : 'TIADA'}","${row.status_hazard}"\n`;
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `SMHMS_Data_Logs_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    async function loadLogsFromMySQL() {
+      try {
+        const response = await fetch(LOGS_API_URL);
+        const result = await response.json();
+        if (result.status === "success") {
+          logHistory = result.data;
+          renderTable();
+        }
+      } catch (err) {
+        console.error("Gagal memuatkan log:", err);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById("searchInput").addEventListener("input", renderTable);
+      document.getElementById("filterStatus").addEventListener("change", renderTable);
+      document.getElementById("btnExport").addEventListener("click", exportToCSV);
+
+      loadLogsFromMySQL();
+      setInterval(loadLogsFromMySQL, 5000);
+    });
+  </script>
+</body>
+</html>

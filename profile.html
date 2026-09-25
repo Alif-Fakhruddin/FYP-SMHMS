@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMHMS - Profil Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+    <nav class="navbar">
+      <div class="logo">SMHMS System</div>
+      <ul class="nav-links">
+        <li><a href="index.html">Live Dashboard</a></li>
+        <li><a href="analytics.html">Data Logs</a></li>
+        <li><a href="settings.html">System Info</a></li>
+        <li><a href="profile.html" class="active">Profil Admin</a></li>
+        <li><a href="#" id="btnLogout" style="background:#ee5d50; color:#fff;">Log Keluar</a></li>
+      </ul>
+    </nav>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <div>
+          <h2>👤 Profil Pentadbir Sistem (Admin)</h2>
+          <p class="sub-text">Tetapan akaun dan maklumat peranan pengguna dari MySQL</p>
+        </div>
+        <span class="badge badge-danger">AKSES ADMIN</span>
+      </div>
+
+      <div class="grid" style="margin-top: 15px;">
+        <div class="card">
+          <h3>📌 Maklumat Akaun</h3>
+          <ul class="info-list">
+            <li><b>Nama Pengguna:</b> <span id="adminName">-</span></li>
+            <li><b>E-mel Pentadbir:</b> <span id="adminEmail">-</span></li>
+            <li><b>Peranan (Role):</b> <span id="adminRole" class="badge badge-danger">ADMIN</span></li>
+            <li><b>Status Sesi:</b> <span class="badge badge-normal">Aktif</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>🔒 Status Kebenaran Sistem</h3>
+          <ul class="info-list">
+            <li><b>Kawalan Ambang Sensor:</b> <span class="text-danger"><b>Dibenarkan</b></span></li>
+            <li><b>Eksport Data CSV:</b> <span class="text-danger"><b>Dibenarkan</b></span></li>
+            <li><b>Akses Pengkalan Data MySQL:</b> <span class="text-danger"><b>Penuh (Full Access)</b></span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 SMHMS - Smart Multi-Hazard Monitoring System | Politeknik Malaysia</p>
+    </footer>
+  </div>
+
+  <script>
+    const sessionData = sessionStorage.getItem("userSession");
+    
+    if (!sessionData) {
+      alert("Sila log masuk terlebih dahulu!");
+      window.location.href = "login.html";
+    } else {
+      const user = JSON.parse(sessionData);
+
+      if (user.role !== "admin") {
+        alert("Akses ditolak! Halaman ini khas untuk Pentadbir Sistem (Admin).");
+        window.location.href = "index.html";
+      } else {
+        document.getElementById("adminName").innerText = user.name || "Pentadbir SMHMS";
+        document.getElementById("adminEmail").innerText = user.email;
+        document.getElementById("adminRole").innerText = user.role.toUpperCase();
+      }
+    }
+
+    document.getElementById("btnLogout").addEventListener("click", () => {
+      sessionStorage.removeItem("userSession");
+      window.location.href = "login.html";
+    });
+  </script>
+</body>
+</html>

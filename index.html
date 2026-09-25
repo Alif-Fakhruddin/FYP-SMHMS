@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMHMS - Live Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <div class="container">
+    <nav class="navbar">
+      <div class="logo">SMHMS System</div>
+      <ul class="nav-links">
+        <li><a href="index.html" class="active">Live Dashboard</a></li>
+        <li><a href="analytics.html">Data Logs</a></li>
+        <li><a href="settings.html">System Info</a></li>
+        <li><a href="profile.html">Profil Admin</a></li>
+      </ul>
+    </nav>
+
+    <header>
+      <div class="header-title">
+        <h1>Smart Multi-Hazard Monitoring System</h1>
+        <p>Pemantauan Real-Time Risk Hazard (Banjir, Gas, Api)</p>
+      </div>
+      <div class="clock-card">
+        <div id="liveTime">00:00:00 PM</div>
+        <div id="liveDate">Memuatkan...</div>
+      </div>
+    </header>
+
+    <div id="mainStatusCard" class="status-card status-normal">
+      <h2>STATUS SISTEM UTAMA</h2>
+      <p id="overallStatusText">MEMUATKAN...</p>
+      <small id="statusDetail">Memeriksa sambungan sensor...</small>
+    </div>
+
+    <div class="grid">
+      <div class="card card-water">
+        <div class="card-header">
+          <h3>🌊 Paras Jarak Air</h3>
+          <span id="waterBadge" class="badge badge-normal">-</span>
+        </div>
+        <div class="value-container">
+          <span id="waterDistance" class="value">0</span> <span class="unit">cm</span>
+        </div>
+      </div>
+
+      <div class="card card-gas">
+        <div class="card-header">
+          <h3>💨 Kualiti Gas / Asap</h3>
+          <span id="gasBadge" class="badge badge-normal">-</span>
+        </div>
+        <div class="value-container">
+          <span id="gasValue" class="value">0</span> <span class="unit">PPM</span>
+        </div>
+      </div>
+
+      <div class="card card-fire">
+        <div class="card-header">
+          <h3>🔥 Status Kebakaran</h3>
+          <span id="fireBadge" class="badge badge-normal">-</span>
+        </div>
+        <div class="value-container">
+          <span id="fireStatus" class="value" style="font-size: 1.8rem;">TIADA</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>📊 Graf Trend Masa Nyata</h3>
+        <span class="live-dot-container"><span class="pulse-dot"></span> Live Data Stream</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="sensorChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Talian Kecemasan Simulasi (Disimpan Selamat Tanpa Panggilan Sebenar) -->
+    <div class="table-card" style="margin-bottom: 20px;">
+      <h3 style="margin-bottom: 10px; color: #ee5d50;">🚨 Talian Kecemasan Kampus</h3>
+      <p style="font-size: 0.85rem; color: #707eae; margin-bottom: 12px;">Sila hubungi pihak kawalan keselamatan jika berlaku sebarang insiden:</p>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button onclick="alert('Menghubungi Bilik Gerakan Keselamatan Kampus: 03-1234 5678')" class="btn-primary" style="background: #ee5d50; border: none; font-size: 0.85rem; padding: 8px 12px; cursor: pointer;">
+          📞 Kawalan Keselamatan (03-1234 5678)
+        </button>
+      </div>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 SMHMS - Smart Multi-Hazard Monitoring System | Politeknik Malaysia</p>
+    </footer>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:5000/api/sensor?api_key=SMHMS_SECRET_API_KEY_2026";
+    let sensorChart;
+    const maxDataPoints = 12;
+
+    function initChart() {
+      const ctx = document.getElementById('sensorChart').getContext('2d');
+      sensorChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { 
+              label: 'Paras Air (cm)', 
+              borderColor: '#4318ff', 
+              backgroundColor: 'rgba(67, 24, 255, 0.08)', 
+              data: [], fill: true, tension: 0.35, yAxisID: 'yWater'
+            },
+            { 
+              label: 'Bacaan Gas (PPM)', 
+              borderColor: '#ffb547', 
+              backgroundColor: 'rgba(255, 181, 71, 0.08)', 
+              data: [], fill: true, tension: 0.35, yAxisID: 'yGas'
+            }
+          ]
+        },
+        options: { 
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            yWater: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Paras Air (cm)', color: '#4318ff' } },
+            yGas: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Bacaan Gas (PPM)', color: '#d97706' } }
+          }
+        }
+      });
+    }
+
+    function addDataToChart(timeLabel, waterValue, gasValue) {
+      if (!sensorChart) return;
+      sensorChart.data.labels.push(timeLabel);
+      sensorChart.data.datasets[0].data.push(waterValue);
+      sensorChart.data.datasets[1].data.push(gasValue);
+
+      if (sensorChart.data.labels.length > maxDataPoints) {
+        sensorChart.data.labels.shift();
+        sensorChart.data.datasets[0].data.shift();
+        sensorChart.data.datasets[1].data.shift();
+      }
+      sensorChart.update();
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('liveTime').innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      document.getElementById('liveDate').innerText = now.toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    async function fetchRealtimeSensorData() {
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) return;
+
+        const result = await response.json();
+        if (result.status === "success") {
+          const data = result.data;
+          const gas = data.gas_level || 0;
+          const water = data.water_level || 0;
+          const fire = data.fire_detected == 1;
+          const status = data.status_hazard || "NORMAL";
+
+          document.getElementById("gasValue").innerText = gas;
+          document.getElementById("waterDistance").innerText = water;
+
+          const fireStatusEl = document.getElementById("fireStatus");
+          const fireBadge = document.getElementById("fireBadge");
+          if (fire) {
+            fireStatusEl.innerText = "DIKESAN!"; fireStatusEl.style.color = "#ee5d50";
+            fireBadge.className = "badge badge-danger"; fireBadge.innerText = "BAHAYA";
+          } else {
+            fireStatusEl.innerText = "TIADA"; fireStatusEl.style.color = "#05cd99";
+            fireBadge.className = "badge badge-normal"; fireBadge.innerText = "NORMAL";
+          }
+
+          const gasBadge = document.getElementById("gasBadge");
+          if (gas > 3500) { gasBadge.className = "badge badge-danger"; gasBadge.innerText = "BAHAYA"; }
+          else if (gas > 2500) { gasBadge.className = "badge badge-warning"; gasBadge.innerText = "AMARAN"; }
+          else { gasBadge.className = "badge badge-normal"; gasBadge.innerText = "NORMAL"; }
+
+          const waterBadge = document.getElementById("waterBadge");
+          if (water <= 15) { waterBadge.className = "badge badge-danger"; waterBadge.innerText = "BAHAYA"; }
+          else if (water <= 30) { waterBadge.className = "badge badge-warning"; waterBadge.innerText = "AMARAN"; }
+          else { waterBadge.className = "badge badge-normal"; waterBadge.innerText = "NORMAL"; }
+
+          const overallStatusEl = document.getElementById("overallStatusText");
+          const statusDetailEl = document.getElementById("statusDetail");
+          const statusCardEl = document.getElementById("mainStatusCard");
+
+          overallStatusEl.innerText = status;
+          statusCardEl.classList.remove("status-normal", "status-warning", "status-danger");
+
+          if (status === "DANGER") {
+            statusCardEl.classList.add("status-danger"); statusDetailEl.innerText = "Tindakan Segera Diperlukan: Bahaya Dikesan pada Sensor!";
+          } else if (status === "WARNING") {
+            statusCardEl.classList.add("status-warning"); statusDetailEl.innerText = "Sistem dalam keadaan berjaga-jaga: Amaran melepasi ambang amaran.";
+          } else {
+            statusCardEl.classList.add("status-normal"); statusDetailEl.innerText = "Semua bacaan berada dalam keadaan selamat dan teratur.";
+          }
+
+          const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          addDataToChart(currentTime, water, gas);
+        }
+      } catch (err) {
+        console.error("Ralat ketersambungan MySQL API:", err);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initChart();
+      setInterval(updateClock, 1000);
+      updateClock();
+
+      fetchRealtimeSensorData();
+      setInterval(fetchRealtimeSensorData, 3000);
+    });
+  </script>
+</body>
+</html>

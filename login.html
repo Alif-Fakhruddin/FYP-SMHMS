@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMHMS - Log Masuk & Daftar</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .tab-container {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e9edf7;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      background: none;
+      border: none;
+      font-weight: 700;
+      color: #707eae;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .tab-btn.active {
+      color: #4318ff;
+      border-bottom: 3px solid #4318ff;
+    }
+  </style>
+</head>
+<body class="login-body">
+
+  <div class="login-card">
+    <div class="login-brand">
+      <h2 style="color: #4318ff;">SMHMS Portal</h2>
+      <p class="sub-text">Sistem Pemantauan Bahaya & Keselamatan</p>
+    </div>
+
+    <div class="tab-container">
+      <button class="tab-btn active" id="tabLoginBtn" onclick="switchTab('login')">LOG MASUK</button>
+      <button class="tab-btn" id="tabRegisterBtn" onclick="switchTab('register')">DAFTAR AKAUN</button>
+    </div>
+
+    <div id="alertBox" class="alert-box alert-danger" style="display: none;"></div>
+
+    <!-- Form 1: Log Masuk -->
+    <form id="loginForm">
+      <div class="input-box">
+        <label for="loginEmail">E-mel</label>
+        <div class="input-field">
+          <input type="email" id="loginEmail" class="form-input" placeholder="contoh@domain.com" required>
+        </div>
+      </div>
+
+      <div class="input-box">
+        <label for="loginPassword">Kata Laluan</label>
+        <div class="input-field">
+          <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary btn-full">LOG MASUK</button>
+    </form>
+
+    <!-- Form 2: Pendaftaran Akaun Baharu -->
+    <form id="registerForm" style="display: none;">
+      <div class="input-box">
+        <label for="regName">Nama Penuh</label>
+        <div class="input-field">
+          <input type="text" id="regName" class="form-input" placeholder="Nama Anda" required>
+        </div>
+      </div>
+
+      <div class="input-box">
+        <label for="regEmail">E-mel</label>
+        <div class="input-field">
+          <input type="email" id="regEmail" class="form-input" placeholder="contoh@domain.com" required>
+        </div>
+      </div>
+
+      <div class="input-box">
+        <label for="regPassword">Kata Laluan</label>
+        <div class="input-field">
+          <input type="password" id="regPassword" class="form-input" placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <div class="input-box">
+        <label for="regRole">Peranan Pengguna</label>
+        <div class="input-field">
+          <select id="regRole" class="form-input" style="width: 100%;">
+            <option value="user">Pengguna Biasa (User)</option>
+            <option value="admin">Pentadbir (Admin)</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary btn-full" style="background: #05cd99;">DAFTAR AKAUN BAHARU</button>
+    </form>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:5000/api";
+    const API_KEY = "SMHMS_SECRET_API_KEY_2026";
+
+    function switchTab(type) {
+      const loginForm = document.getElementById("loginForm");
+      const registerForm = document.getElementById("registerForm");
+      const tabLoginBtn = document.getElementById("tabLoginBtn");
+      const tabRegisterBtn = document.getElementById("tabRegisterBtn");
+      const alertBox = document.getElementById("alertBox");
+
+      alertBox.style.display = "none";
+
+      if (type === 'login') {
+        loginForm.style.display = "block";
+        registerForm.style.display = "none";
+        tabLoginBtn.classList.add("active");
+        tabRegisterBtn.classList.remove("active");
+      } else {
+        loginForm.style.display = "none";
+        registerForm.style.display = "block";
+        tabRegisterBtn.classList.add("active");
+        tabLoginBtn.classList.remove("active");
+      }
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+
+      try {
+        const response = await fetch(`${API_BASE}/login?api_key=${API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          sessionStorage.setItem("userSession", JSON.stringify(result.user));
+          window.location.href = result.user.role === "admin" ? "profile.html" : "index.html";
+        } else {
+          showAlert(result.message || "E-mel atau kata laluan tidak sah!", "danger");
+        }
+      } catch (err) {
+        showAlert("Gagal menghubungi pelayan API MySQL!", "danger");
+      }
+    });
+
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("regName").value;
+      const email = document.getElementById("regEmail").value;
+      const password = document.getElementById("regPassword").value;
+      const role = document.getElementById("regRole").value;
+
+      try {
+        const response = await fetch(`${API_BASE}/register?api_key=${API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password, role })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          showAlert("Akaun berjaya didaftarkan ke pangkalan data MySQL! Sila log masuk.", "success");
+          document.getElementById("registerForm").reset();
+          setTimeout(() => switchTab('login'), 1500);
+        } else {
+          showAlert(result.message || "Pendaftaran gagal!", "danger");
+        }
+      } catch (err) {
+        showAlert("Gagal mendaftar akaun ke MySQL!", "danger");
+      }
+    });
+
+    function showAlert(msg, type) {
+      const alertBox = document.getElementById("alertBox");
+      alertBox.innerText = msg;
+      alertBox.className = `alert-box alert-${type}`;
+      alertBox.style.display = "block";
+    }
+  </script>
+</body>
+</html>
