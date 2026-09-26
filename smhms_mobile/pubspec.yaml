@@ -1,5 +1,5 @@
-name: smhms_mobile_app
-description: "Aplikasi Mudah Alih Sistem Pemantauan Bahaya & Keselamatan (SMHMS)"
+name: mobile_app
+description: "Aplikasi Pemantauan Bahaya & Keselamatan (SMHMS)"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -10,15 +10,22 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Pakej untuk membuat HTTP Request ke Flask API
-  http: ^1.1.0 
+
+  # Pakej untuk permintaan HTTP ke Flask Backend API
+  http: ^1.2.0
+
+  # Ikon reka bentuk iOS / Material
   cupertino_icons: ^1.0.6
-  vibration: ^3.2.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
   flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
+
+  # Nyatakan folder gambar/asset jika ada dalam projek anda
+  # assets:
+  #   - assets/images/
