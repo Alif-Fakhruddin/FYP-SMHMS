@@ -42,7 +42,6 @@ android {
 
     buildTypes {
         release {
-            // Menggunakan tetapan signing laluan debug untuk memudahkan pengujian APK
             signingConfig signingConfigs.debug
             minifyEnabled false
             shrinkResources false
