@@ -27,13 +27,15 @@ jobs:
           channel: 'stable'
 
       - name: Get Dependencies
+        working-directory: smhms_mobile
         run: flutter pub get
 
       - name: Build APK
+        working-directory: smhms_mobile
         run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: smhms_mobile/build/app/outputs/flutter-apk/app-release.apk
