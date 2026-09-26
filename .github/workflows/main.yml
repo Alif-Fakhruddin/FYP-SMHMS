@@ -30,6 +30,10 @@ jobs:
         working-directory: smhms_mobile
         run: flutter pub get
 
+      - name: Analyze Code Errors
+        working-directory: smhms_mobile
+        run: flutter analyze --no-fatal-infos
+
       - name: Build APK
         working-directory: smhms_mobile
         run: flutter build apk --release --no-tree-shake-icons
