@@ -14,7 +14,10 @@ dependencies:
   # UI & Icons
   cupertino_icons: ^1.0.8
 
-  # Pakej Getaran (Vibration)
+  # Pakej HTTP untuk panggil API Flask/Backend
+  http: ^1.2.0
+
+  # Pakej Getaran
   vibration: ^2.0.1
 
 dev_dependencies:
