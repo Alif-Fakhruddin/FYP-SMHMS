@@ -28,16 +28,17 @@ jobs:
 
       - name: Get Dependencies
         run: |
-          cd smhms_mobile
+          if [ -d "mobile_app" ]; then cd mobile_app; fi
           flutter pub get
 
       - name: Build APK
         run: |
-          cd smhms_mobile
+          if [ -d "mobile_app" ]; then cd mobile_app; fi
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: smhms_mobile/build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            **/build/app/outputs/flutter-apk/app-release.apk
