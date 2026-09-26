@@ -32,7 +32,7 @@ jobs:
 
       - name: Build APK
         working-directory: smhms_mobile
-        run: flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release --no-tree-shake-icons --no-pub
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
