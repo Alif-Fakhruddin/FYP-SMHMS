@@ -53,13 +53,17 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  // Telah diisi secara automatik mengikut e-mel dan kata laluan anda
+  final TextEditingController _usernameController =
+      TextEditingController(text: 'admin@smhms.com');
+  final TextEditingController _passwordController =
+      TextEditingController(text: 'admin123');
   final LocalAuthentication _auth = LocalAuthentication();
 
   bool _isLoading = false;
   String _statusMessage = '';
 
+  // IP Laptop Anda
   final String baseUrl = 'http://172.20.235.48:5000/api';
 
   Future<void> _login() async {
@@ -68,7 +72,7 @@ class _LoginPageState extends State<LoginPage> {
 
     if (username.isEmpty || password.isEmpty) {
       setState(() {
-        _statusMessage = 'Sila masukkan nama pengguna dan kata laluan.';
+        _statusMessage = 'Sila masukkan nama pengguna/e-mel dan kata laluan.';
       });
       return;
     }
@@ -84,6 +88,7 @@ class _LoginPageState extends State<LoginPage> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'username': username,
+          'email': username, // Hantar kedua-dua medan untuk menyokong format backend anda
           'password': password,
         }),
       ).timeout(const Duration(seconds: 8));
@@ -95,8 +100,8 @@ class _LoginPageState extends State<LoginPage> {
             context,
             '/main',
             arguments: {
-              'username': data['username'] ?? username,
-              'role': data['role'] ?? 'user',
+              'username': data['username'] ?? data['user']?['name'] ?? username,
+              'role': data['role'] ?? data['user']?['role'] ?? 'user',
             },
           );
         }
@@ -108,7 +113,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Gagal menyambung ke pelayan. Sila pastikan backend sedang berjalan.';
+        _statusMessage = 'Gagal menyambung ke pelayan ($baseUrl). Sila pastikan backend Flask berjalan.';
       });
     } finally {
       if (mounted) {
@@ -177,7 +182,7 @@ class _LoginPageState extends State<LoginPage> {
                   TextField(
                     controller: _usernameController,
                     decoration: const InputDecoration(
-                      labelText: 'Nama Pengguna',
+                      labelText: 'E-mel / Nama Pengguna',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.person),
                     ),
@@ -272,7 +277,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
     return Scaffold(
       drawer: NavigationDrawer(
         onDestinationSelected: (index) {
-          Navigator.pop(context); // Tutup drawer
+          Navigator.pop(context);
           setState(() {
             _currentIndex = index;
           });
