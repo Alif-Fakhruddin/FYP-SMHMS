@@ -17,8 +17,14 @@ dependencies:
   # Pakej HTTP untuk panggil API Flask/Backend
   http: ^1.2.0
 
-  # Pakej Getaran
+  # Pakej Getaran & Notifikasi
   vibration: ^2.0.1
+  flutter_local_notifications: ^17.0.0
+
+  # Visualisasi Data & Keselamatan (Tambahan Baharu)
+  fl_chart: ^0.68.0
+  local_auth: ^2.1.8
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
