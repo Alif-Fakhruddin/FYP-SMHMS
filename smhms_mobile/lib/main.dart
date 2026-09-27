@@ -220,7 +220,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Status Semasa Kad
             _buildStatusHeader(currentReading, isDanger),
