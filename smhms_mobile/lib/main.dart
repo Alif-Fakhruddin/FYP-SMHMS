@@ -64,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
   String _statusMessage = '';
 
   // IP Laptop Anda
-  final String baseUrl = 'http://172.20.235.48:5000/api';
+  final String baseUrl = 'https://tamper-neon-stays.ngrok-free.dev/api';
 
   Future<void> _login() async {
     final username = _usernameController.text.trim();
@@ -380,7 +380,7 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _flameDetected = false;
   Timer? _timer;
 
-  final String baseUrl = 'http://172.20.235.48:5000/api';
+  final String baseUrl = 'https://tamper-neon-stays.ngrok-free.dev/api';
 
   @override
   void initState() {
