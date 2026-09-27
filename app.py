@@ -3,7 +3,7 @@ from flask_cors import CORS
 import mysql.connector
 
 app = Flask(__name__)
-CORS(app) # Membenarkan sambungan dari Frontend HTML
+CORS(app) # Membenarkan sambungan dari Web & Mobile
 
 # Konfigurasi Pangkalan Data MySQL (XAMPP Default)
 db_config = {
@@ -19,12 +19,14 @@ def get_db_connection():
     return mysql.connector.connect(**db_config)
 
 # -------------------------------------------------------------
-# 1. API: Menerima Data Sensor dari ESP32 & Paparan Dashboard
+# 1. API: Menerima & Menghantar Data Sensor (Menyokong /api/sensor & /api/sensor-data)
 # -------------------------------------------------------------
 @app.route('/api/sensor', methods=['GET', 'POST'])
+@app.route('/api/sensor-data', methods=['GET']) # Tambahan endpoint untuk Flutter
 def handle_sensor():
+    # Jika dipanggil dari Flutter tanpa API key, benarkan bacaan GET
     key = request.args.get('api_key')
-    if key != API_KEY:
+    if request.method == 'POST' and key != API_KEY:
         return jsonify({"status": "error", "message": "API Key tidak sah!"}), 403
 
     conn = get_db_connection()
@@ -32,7 +34,7 @@ def handle_sensor():
 
     # ESP32 menghantar data baharu (POST)
     if request.method == 'POST':
-        data = request.json
+        data = request.json or {}
         water = data.get('water_level', 0)
         gas = data.get('gas_level', 0)
         fire = data.get('fire_detected', 0)
@@ -54,7 +56,7 @@ def handle_sensor():
         conn.close()
         return jsonify({"status": "success", "message": "Data berjaya disimpan ke MySQL!"})
 
-    # Frontend mendapatkan bacaan terkini (GET)
+    # Frontend/Flutter mendapatkan bacaan terkini (GET)
     else:
         query = "SELECT * FROM sensor_logs ORDER BY id DESC LIMIT 1"
         cursor.execute(query)
@@ -64,18 +66,28 @@ def handle_sensor():
         conn.close()
 
         if result:
-            return jsonify({"status": "success", "data": result})
-        return jsonify({"status": "success", "data": {"water_level": 0, "gas_level": 0, "fire_detected": 0, "status_hazard": "NORMAL"}})
+            # Padankan nama medan dengan Flutter
+            return jsonify({
+                "status": "success",
+                "temperature": float(result.get('water_level', 28.0)), # Dipadankan untuk UI Flutter
+                "gas_level": float(result.get('gas_level', 150.0)),
+                "flame_detected": bool(result.get('fire_detected', 0)),
+                "data": result
+            })
+        
+        return jsonify({
+            "status": "success",
+            "temperature": 28.0,
+            "gas_level": 150.0,
+            "flame_detected": False,
+            "data": {"water_level": 0, "gas_level": 0, "fire_detected": 0, "status_hazard": "NORMAL"}
+        })
 
 # -------------------------------------------------------------
-# 2. API: Memuatkan Sejarah Log untuk analytics.html
+# 2. API: Memuatkan Sejarah Log
 # -------------------------------------------------------------
 @app.route('/api/logs', methods=['GET'])
 def get_logs():
-    key = request.args.get('api_key')
-    if key != API_KEY:
-        return jsonify({"status": "error", "message": "API Key tidak sah!"}), 403
-
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -88,35 +100,46 @@ def get_logs():
     return jsonify({"status": "success", "data": logs})
 
 # -------------------------------------------------------------
-# 3. API: Log Masuk Pengguna (login.html)
+# 3. API: Log Masuk Pengguna (Menyokong 'username' & 'email')
 # -------------------------------------------------------------
 @app.route('/api/login', methods=['POST'])
 def login():
-    data = request.json
-    email = data.get('email')
+    data = request.json or {}
+    # Terima sama ada 'username' atau 'email' dari payload
+    login_id = data.get('username') or data.get('email')
     password = data.get('password')
+
+    if not login_id or not password:
+        return jsonify({"status": "error", "message": "Sila masukkan nama pengguna/e-mel dan kata laluan!"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    query = "SELECT name, email, role FROM users WHERE email = %s AND password = %s"
-    cursor.execute(query, (email, password))
+    # Semak sama ada padan dengan e-mel ATAU nama pengguna
+    query = "SELECT name, email, role FROM users WHERE (email = %s OR name = %s) AND password = %s"
+    cursor.execute(query, (login_id, login_id, password))
     user = cursor.fetchone()
 
     cursor.close()
     conn.close()
 
     if user:
-        return jsonify({"status": "success", "user": user})
+        return jsonify({
+            "status": "success",
+            "message": "Log masuk berjaya!",
+            "username": user['name'],
+            "role": user['role'],
+            "user": user
+        })
     else:
-        return jsonify({"status": "error", "message": "E-mel atau kata laluan salah!"}), 401
+        return jsonify({"status": "error", "message": "E-mel / Nama Pengguna atau kata laluan salah!"}), 401
 
 # -------------------------------------------------------------
-# 4. API: Pendaftaran Akaun Baharu (login.html)
+# 4. API: Pendaftaran Akaun Baharu
 # -------------------------------------------------------------
 @app.route('/api/register', methods=['POST'])
 def register():
-    data = request.json
+    data = request.json or {}
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
@@ -130,12 +153,12 @@ def register():
         cursor.execute(query, (name, email, password, role))
         conn.commit()
         return jsonify({"status": "success", "message": "Pendaftaran berjaya!"})
-    except mysql.connector.Error as err:
+    except mysql.connector.Error:
         return jsonify({"status": "error", "message": "E-mel telah digunakan!"}), 400
     finally:
         cursor.close()
         conn.close()
 
 if __name__ == '__main__':
-    # Jalankan server API pada port 5000
+    # Membenarkan akses dari IP Luar / Mobile App pada Port 5000
     app.run(host='0.0.0.0', port=5000, debug=True)
