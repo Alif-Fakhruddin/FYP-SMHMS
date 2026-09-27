@@ -458,7 +458,7 @@ class _DashboardPageState extends State<DashboardPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_isLoadingData)
                 Shimmer.fromColors(
@@ -565,7 +565,7 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   isDanger ? 'AMARAN BAHAYA!' : 'Sistem Dalam Keadaan Selamat',
