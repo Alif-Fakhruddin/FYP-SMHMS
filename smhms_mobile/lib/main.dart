@@ -4,16 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-// ==========================================
-// TETAPAN IP LAPTOP / BACKEND FLASK
-// ==========================================
-// Ganti IP di bawah dengan IP IPv4 Laptop anda (cth: 192.168.1.15)
-// Gunakan 10.0.2.2 jika anda menggunakan Android Emulator
-const String backendBaseUrl = 'http://172.20.235.48:5000/api';
-const String apiKey = 'SMHMS_SECRET_API_KEY_2026';
+import 'package:shimmer/shimmer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,236 +18,659 @@ class SMHMSApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'SMHMS - Bahaya & Keselamatan',
       debugShowCheckedModeBanner: false,
-      title: 'SMHMS Mobile App',
       theme: ThemeData(
-        primarySwatch: Colors.red,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1E88E5),
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
       ),
-      home: const DashboardScreen(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/main': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          return MainNavigationWrapper(
+            username: args?['username'] ?? 'Pengguna',
+            role: args?['role'] ?? 'user',
+          );
+        },
+      },
     );
   }
 }
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+// ==========================================
+// 1. SKRIN LOG MASUK (LOGIN PAGE)
+// ==========================================
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  // Instance Keselamatan & Notifikasi
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   final LocalAuthentication _auth = LocalAuthentication();
-  final FlutterLocalNotificationsPlugin _notificationsPlugin =
-      FlutterLocalNotificationsPlugin();
 
-  // Tetapan Data & Status
-  bool _isLoading = true;
-  bool _isAuthenticated = false;
-  String _statusHazard = 'NORMAL';
-  
-  // Data Masa Nyata untuk Graf (Senarai FlSpot)
-  final List<FlSpot> _gasReadings = [];
-  int _timeStep = 0;
-  Timer? _dataTimer;
+  bool _isLoading = false;
+  String _statusMessage = '';
 
-  @override
-  void initState() {
-    super.initState();
-    _initNotifications();
+  final String baseUrl = 'http://172.20.235.48:5000/api';
 
-    // Pengambilan data sensor sebenar dari Flask Backend setiap 3 saat
-    _dataTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      _fetchRealtimeData();
+  Future<void> _login() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (username.isEmpty || password.isEmpty) {
+      setState(() {
+        _statusMessage = 'Sila masukkan nama pengguna dan kata laluan.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'Sedang menyambung ke pelayan...';
     });
 
-    // Nyahaktifkan loading Shimmer awal selepas 2 saat
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+        }),
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/main',
+            arguments: {
+              'username': data['username'] ?? username,
+              'role': data['role'] ?? 'user',
+            },
+          );
+        }
+      } else {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _statusMessage = data['message'] ?? 'Log masuk gagal. Semak maklumat anda.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Gagal menyambung ke pelayan. Sila pastikan backend sedang berjalan.';
+      });
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-    });
-  }
-
-  @override
-  void dispose() {
-    _dataTimer?.cancel();
-    super.dispose();
-  }
-
-  // 1. Inisialisasi Notifikasi Tempatan secara Selamat
-  Future<void> _initNotifications() async {
-    try {
-      const AndroidInitializationSettings androidSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-      const InitializationSettings settings =
-          InitializationSettings(android: androidSettings);
-      await _notificationsPlugin.initialize(settings);
-
-      // Minta kebenaran notifikasi untuk Android 13+
-      final androidImplementation = _notificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      if (androidImplementation != null) {
-        await androidImplementation.requestNotificationsPermission();
-      }
-    } catch (e) {
-      debugPrint('Ralat Inisialisasi Notifikasi: $e');
     }
   }
 
-  // Hantar Notifikasi Bahaya Pop-up
-  Future<void> _triggerDangerAlert(double value) async {
+  Future<void> _authenticateBiometric() async {
     try {
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'smhms_alert_channel',
-        'SMHMS Hazard Notification',
-        importance: Importance.max,
-        priority: Priority.high,
-        color: Colors.red,
-      );
-      const NotificationDetails details = NotificationDetails(android: androidDetails);
+      bool canCheckBiometrics = await _auth.canCheckBiometrics;
+      bool isDeviceSupported = await _auth.isDeviceSupported();
 
-      await _notificationsPlugin.show(
-        1,
-        '⚠️ AMARAN BAHAYA: TAHAP GAS TINGGI!',
-        'Bacaan sensor gas semasa (${value.toStringAsFixed(1)} PPM) melepasi had selamat!',
-        details,
-      );
-    } catch (e) {
-      debugPrint('Ralat Menghantar Notifikasi: $e');
-    }
-  }
-
-  // 2. Pengambilan Data Sensor Sebenar dari Python Flask API (Disertai Try-Catch)
-  Future<void> _fetchRealtimeData() async {
-    final String url = '$backendBaseUrl/sensor?api_key=$apiKey';
-
-    try {
-      final response = await http
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 4));
-
-      if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
-
-        if (result['status'] == 'success' && mounted) {
-          final data = result['data'];
-          double newGasReading = (data['gas_level'] ?? 0).toDouble();
-          String hazardState = data['status_hazard'] ?? 'NORMAL';
-
-          setState(() {
-            _timeStep++;
-            _statusHazard = hazardState;
-            _gasReadings.add(FlSpot(_timeStep.toDouble(), newGasReading));
-
-            // Simpan 10 bacaan terkini sahaja di graf supaya tidak terlalu padat
-            if (_gasReadings.length > 10) {
-              _gasReadings.removeAt(0);
-            }
-          });
-
-          // Pemicu notifikasi jika status DANGER atau bacaan gas > 75 PPM
-          if (hazardState == 'DANGER' || newGasReading > 75) {
-            _triggerDangerAlert(newGasReading);
-          }
-        }
-      }
-    } catch (e) {
-      // Tangkap ralat rangkaian secara senyap tanpa menyebabkan aplikasi crash
-      debugPrint('Ralat Rangkaian Sensor: $e');
-    }
-  }
-
-  // 3. Imbasan Cap Jari (Biometrics)
-  Future<void> _authenticateBiometrics() async {
-    bool authenticated = false;
-    try {
-      bool canCheck = await _auth.canCheckBiometrics;
-      bool isSupported = await _auth.isDeviceSupported();
-
-      if (canCheck && isSupported) {
-        authenticated = await _auth.authenticate(
-          localizedReason: 'Imbas cap jari anda untuk membuka Kawalan Pentadbir (Admin)',
-          options: const AuthenticationOptions(
-            stickyAuth: true,
-            biometricOnly: true,
-          ),
+      if (canCheckBiometrics && isDeviceSupported) {
+        bool authenticated = await _auth.authenticate(
+          localizedReason: 'Gunakan cap jari untuk log masuk ke SMHMS',
+          options: const AuthenticationOptions(biometricOnly: true),
         );
+
+        if (authenticated && mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/main',
+            arguments: {
+              'username': 'Pengguna Biometrik',
+              'role': 'user',
+            },
+          );
+        }
+      } else {
+        setState(() {
+          _statusMessage = 'Biometrik tidak disokong pada peranti ini.';
+        });
       }
     } catch (e) {
-      debugPrint('Ralat Biometrik: $e');
-    }
-
-    if (mounted) {
       setState(() {
-        _isAuthenticated = authenticated;
+        _statusMessage = 'Ralat Biometrik: $e';
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authenticated
-              ? 'Akses Cap Jari Disahkan!'
-              : 'Gagal Mengesahkan Cap Jari'),
-          backgroundColor: authenticated ? Colors.green : Colors.red,
-        ),
-      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    double currentReading =
-        _gasReadings.isNotEmpty ? _gasReadings.last.y : 0.0;
-    bool isDanger = _statusHazard == 'DANGER' || currentReading > 75;
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.shield_outlined, size: 90, color: Color(0xFF1E88E5)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'SMHMS Access Portal',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const Text(
+                    'Sistem Pemantauan Bahaya & Keselamatan',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _usernameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Pengguna',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Kata Laluan',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E88E5),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Log Masuk', style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  IconButton(
+                    iconSize: 48,
+                    icon: const Icon(Icons.fingerprint, color: Color(0xFF1E88E5)),
+                    onPressed: _authenticateBiometric,
+                    tooltip: 'Log Masuk Biometrik',
+                  ),
+                  const SizedBox(height: 16),
+                  if (_statusMessage.isNotEmpty)
+                    Text(
+                      _statusMessage,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _statusMessage.contains('berjaya') ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
+// ==========================================
+// 2. NAVIGASI UTAMA (BOTTOM NAV & DRAWER)
+// ==========================================
+class MainNavigationWrapper extends StatefulWidget {
+  final String username;
+  final String role;
+
+  const MainNavigationWrapper({
+    super.key,
+    required this.username,
+    required this.role,
+  });
+
+  @override
+  State<MainNavigationWrapper> createState() => _MainNavigationWrapperState();
+}
+
+class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
+  int _currentIndex = 0;
+
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      DashboardPage(username: widget.username, role: widget.role),
+      const AnalyticsPage(),
+      const HistoryPage(),
+      const SettingsPage(),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: NavigationDrawer(
+        onDestinationSelected: (index) {
+          Navigator.pop(context); // Tutup drawer
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        selectedIndex: _currentIndex,
+        children: [
+          UserAccountsDrawerHeader(
+            accountName: Text(widget.username, style: const TextStyle(fontWeight: FontWeight.bold)),
+            accountEmail: Text('Peranan: ${widget.role.toUpperCase()}'),
+            currentAccountPicture: const CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person, color: Color(0xFF1E88E5), size: 40),
+            ),
+            decoration: const BoxDecoration(color: Color(0xFF1E88E5)),
+          ),
+          const NavigationDrawerDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: Text('Dashboard Utama'),
+          ),
+          const NavigationDrawerDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics),
+            label: Text('Analisis & Graf'),
+          ),
+          const NavigationDrawerDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: Text('Log Rekod Amaran'),
+          ),
+          const NavigationDrawerDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: Text('Tetapan Sistem'),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Log Keluar', style: TextStyle(color: Colors.red)),
+            onTap: () {
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
+        ],
+      ),
+      body: _pages[_currentIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics),
+            label: 'Analisis',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: 'Sejarah',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Tetapan',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 3. SKRIN DASHBOARD UTAMA
+// ==========================================
+class DashboardPage extends StatefulWidget {
+  final String username;
+  final String role;
+
+  const DashboardPage({super.key, required this.username, required this.role});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  bool _isLoadingData = true;
+  double _temperature = 0.0;
+  double _gasLevel = 0.0;
+  bool _flameDetected = false;
+  Timer? _timer;
+
+  final String baseUrl = 'http://10.0.2.2:5000/api';
+
+  @override
+  void initState() {
+    super.initState();
+    _initNotifications();
+    _fetchSensorData();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      _fetchSensorData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initNotifications() async {
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
+    await _notificationsPlugin.initialize(initSettings);
+  }
+
+  Future<void> _showHazardNotification(String title, String body) async {
+    const androidDetails = AndroidNotificationDetails(
+      'hazard_channel',
+      'Amaran Bahaya',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const notificationDetails = NotificationDetails(android: androidDetails);
+    await _notificationsPlugin.show(0, title, body, notificationDetails);
+  }
+
+  Future<void> _fetchSensorData() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/sensor-data'))
+          .timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _temperature = (data['temperature'] ?? 28.0).toDouble();
+          _gasLevel = (data['gas_level'] ?? 150.0).toDouble();
+          _flameDetected = data['flame_detected'] ?? false;
+          _isLoadingData = false;
+        });
+
+        if (_flameDetected || _temperature > 50.0 || _gasLevel > 400.0) {
+          _showHazardNotification('AMARAN BAHAYA!', 'Sensor mengesan potensi bahaya di premis anda.');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SMHMS Real-Time Portal'),
-        backgroundColor: isDanger ? Colors.red : Colors.blueGrey[900],
-        foregroundColor: Colors.white,
+        title: Text('SMHMS - ${widget.username}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          )
+        ],
       ),
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        onRefresh: _fetchSensorData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAlignment.start,
+            children: [
+              if (_isLoadingData)
+                Shimmer.fromColors(
+                  baseColor: Colors.grey[300]!,
+                  highlightColor: Colors.grey[100]!,
+                  child: Container(
+                    height: 120,
+                    width: double.infinity,
+                    color: Colors.white,
+                  ),
+                )
+              else
+                _buildStatusBanner(),
+
+              const SizedBox(height: 20),
+              const Text(
+                'Status Sensor Semasa',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSensorCard(
+                      'Suhu',
+                      '$_temperature °C',
+                      Icons.thermostat,
+                      _temperature > 40 ? Colors.red : Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSensorCard(
+                      'Gas (MQ-2)',
+                      '$_gasLevel PPM',
+                      Icons.air,
+                      _gasLevel > 300 ? Colors.red : Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildSensorCard(
+                'Pengesan Api',
+                _flameDetected ? 'API DIKESAN!' : 'Selamat',
+                Icons.local_fire_department,
+                _flameDetected ? Colors.red : Colors.blue,
+              ),
+
+              const SizedBox(height: 24),
+              const Text(
+                'Graf Suhu (24 Jam)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              SizedBox(
+                height: 200,
+                child: LineChart(
+                  LineChartData(
+                    gridData: const FlGridData(show: true),
+                    titlesData: const FlTitlesData(show: true),
+                    borderData: FlBorderData(show: true),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: [
+                          const FlSpot(0, 25),
+                          const FlSpot(1, 27),
+                          const FlSpot(2, 26),
+                          FlSpot(3, _temperature),
+                        ],
+                        isCurved: true,
+                        color: Colors.blue,
+                        barWidth: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner() {
+    bool isDanger = _flameDetected || _temperature > 50 || _gasLevel > 400;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDanger ? Colors.red[100] : Colors.green[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDanger ? Colors.red : Colors.green),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isDanger ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+            color: isDanger ? Colors.red : Colors.green,
+            size: 36,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAlignment.start,
+              children: [
+                Text(
+                  isDanger ? 'AMARAN BAHAYA!' : 'Sistem Dalam Keadaan Selamat',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDanger ? Colors.red[900] : Colors.green[900],
+                  ),
+                ),
+                Text(
+                  isDanger
+                      ? 'Tindakan segera diperlukan di premis.'
+                      : 'Semua bacaan sensor berada pada paras normal.',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSensorCard(String title, String value, IconData icon, Color color) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Semasa Kad
-            _buildStatusHeader(currentReading, isDanger),
+            Icon(icon, size: 36, color: color),
+            const SizedBox(height: 8),
+            Text(title, style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-            const SizedBox(height: 20),
+// ==========================================
+// 4. SKRIN ANALISIS & GRAF (ANALYTICS)
+// ==========================================
+class AnalyticsPage extends StatelessWidget {
+  const AnalyticsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Analisis & Trend Sensor')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView(
+          children: [
             const Text(
-              'Graf Masa Nyata (MQ Gas Sensor)',
+              'Trend Bacaan Gas (MQ-2)',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
-
-            // 4. Graf Masa Nyata ATAU Shimmer Loading
-            _isLoading
-                ? _buildShimmerChart()
-                : _buildRealtimeLineChart(isDanger),
-
-            const SizedBox(height: 25),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(show: true),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: const [
+                        FlSpot(0, 120),
+                        FlSpot(1, 140),
+                        FlSpot(2, 135),
+                        FlSpot(3, 160),
+                        FlSpot(4, 150),
+                      ],
+                      isCurved: true,
+                      color: Colors.green,
+                      barWidth: 3,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
             const Text(
-              'Kawalan Aplikasi',
+              'Taburan Ringkasan Bahaya',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
-
-            // Butang Pengesahan Biometrik
-            ElevatedButton.icon(
-              onPressed: _authenticateBiometrics,
-              icon: const Icon(Icons.fingerprint),
-              label: Text(_isAuthenticated
-                  ? 'Mod Admin: Aktif'
-                  : 'Sahkan Cap Jari (Admin Lock)'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-                backgroundColor:
-                    _isAuthenticated ? Colors.green : Colors.blueGrey[800],
-                foregroundColor: Colors.white,
+            const SizedBox(height: 12),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.warning, color: Colors.amber),
+                title: Text('Amaran Suhu Tinggi'),
+                trailing: Text('3 kali minggu ini'),
+              ),
+            ),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.local_fire_department, color: Colors.red),
+                title: Text('Pemicuan Pengesan Api'),
+                trailing: Text('0 kali'),
               ),
             ),
           ],
@@ -263,82 +678,109 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+}
 
-  // Widget Kad Status
-  Widget _buildStatusHeader(double reading, bool isDanger) {
-    return Card(
-      color: isDanger ? Colors.red[100] : Colors.green[50],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Icon(
-          isDanger ? Icons.warning_amber : Icons.check_circle_outline,
-          color: isDanger ? Colors.red : Colors.green,
-          size: 40,
-        ),
-        title: Text(
-          isDanger ? 'STATUS: DANGER' : 'STATUS: NORMAL',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: isDanger ? Colors.red : Colors.green[900],
-          ),
-        ),
-        subtitle: Text('Bacaan Terkini: ${reading.toStringAsFixed(1)} PPM'),
-      ),
-    );
-  }
+// ==========================================
+// 5. SKRIN SEJARAH & REKOD LOG (HISTORY)
+// ==========================================
+class HistoryPage extends StatelessWidget {
+  const HistoryPage({super.key});
 
-  // Widget Graf Masa Nyata (fl_chart)
-  Widget _buildRealtimeLineChart(bool isDanger) {
-    return Container(
-      height: 220,
-      padding: const EdgeInsets.only(right: 18, left: 10, top: 24, bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-      ),
-      child: LineChart(
-        LineChartData(
-          gridData: const FlGridData(show: true),
-          titlesData: const FlTitlesData(
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          borderData: FlBorderData(show: true),
-          minY: 0,
-          maxY: 100,
-          lineBarsData: [
-            LineChartBarData(
-              spots: _gasReadings,
-              isCurved: true,
-              color: isDanger ? Colors.red : Colors.blue,
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: const FlDotData(show: true),
-              belowBarData: BarAreaData(
-                show: true,
-                color: isDanger
-                    ? Colors.red.withOpacity(0.2)
-                    : Colors.blue.withOpacity(0.2),
+  @override
+  Widget build(BuildContext context) {
+    final List<Map<String, String>> logs = [
+      {
+        'title': 'Sistem Normal',
+        'desc': 'Semua sensor berjalan dengan baik.',
+        'time': 'Hari ini, 10:30 AM',
+        'type': 'info'
+      },
+      {
+        'title': 'Amaran Kebocoran Gas',
+        'desc': 'Gas MQ-2 melebihi paras 350 PPM.',
+        'time': 'Semalam, 04:15 PM',
+        'type': 'warning'
+      },
+      {
+        'title': 'Log Masuk Biometrik',
+        'desc': 'Pengguna log masuk melalui cap jari.',
+        'time': '25 Sep, 08:00 AM',
+        'type': 'info'
+      },
+    ];
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Sejarah Log Amaran')),
+      body: ListView.builder(
+        itemCount: logs.length,
+        itemBuilder: (context, index) {
+          final log = logs[index];
+          bool isWarning = log['type'] == 'warning';
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: ListTile(
+              leading: Icon(
+                isWarning ? Icons.warning : Icons.info,
+                color: isWarning ? Colors.red : Colors.blue,
               ),
+              title: Text(log['title']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${log['desc']}\n${log['time']}'),
+              isThreeLine: true,
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
+}
 
-  // Widget Shimmer Loading untuk Graf
-  Widget _buildShimmerChart() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      child: Container(
-        height: 220,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
+// ==========================================
+// 6. SKRIN TETAPAN (SETTINGS)
+// ==========================================
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  bool _enableNotifications = true;
+  bool _enableBiometrics = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Tetapan Sistem')),
+      body: ListView(
+        children: [
+          SwitchListTile(
+            title: const Text('Notifikasi Pop-up Amaran'),
+            subtitle: const Text('Terima notifikasi serta-merta apabila bahaya dikesan'),
+            value: _enableNotifications,
+            onChanged: (val) {
+              setState(() {
+                _enableNotifications = val;
+              });
+            },
+          ),
+          SwitchListTile(
+            title: const Text('Pengesahan Biometrik'),
+            subtitle: const Text('Benarkan log masuk menggunakan cap jari'),
+            value: _enableBiometrics,
+            onChanged: (val) {
+              setState(() {
+                _enableBiometrics = val;
+              });
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('Versi Aplikasi'),
+            subtitle: const Text('SMHMS v1.0.0 (FYP Project)'),
+          ),
+        ],
       ),
     );
   }
