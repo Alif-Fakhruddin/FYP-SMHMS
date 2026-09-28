@@ -107,9 +107,11 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     } catch (e) {
-      setState(() {
-        _statusMessage = 'Gagal menyambung ke pelayan. Sila pastikan backend sedang berjalan.';
-      });
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Gagal menyambung ke pelayan. Sila pastikan backend sedang berjalan.';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -235,7 +237,7 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 // ==========================================
-// 2. NAVIGASI UTAMA (BOTTOM NAV & DRAWER)
+// 2. NAVIGASI UTAMA (BOTTOM NAV & DRAWER WITH PROFILE)
 // ==========================================
 class MainNavigationWrapper extends StatefulWidget {
   final String username;
@@ -263,6 +265,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
       DashboardPage(username: widget.username, role: widget.role),
       const AnalyticsPage(),
       const HistoryPage(),
+      ProfilePage(username: widget.username, role: widget.role),
       const SettingsPage(),
     ];
   }
@@ -272,7 +275,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
     return Scaffold(
       drawer: NavigationDrawer(
         onDestinationSelected: (index) {
-          Navigator.pop(context); // Tutup drawer
+          Navigator.pop(context);
           setState(() {
             _currentIndex = index;
           });
@@ -302,6 +305,11 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: Text('Log Rekod Amaran'),
+          ),
+          const NavigationDrawerDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: Text('Profil Pengguna'),
           ),
           const NavigationDrawerDestination(
             icon: Icon(Icons.settings_outlined),
@@ -343,6 +351,11 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
             label: 'Sejarah',
           ),
           NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profil',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings),
             label: 'Tetapan',
@@ -354,7 +367,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
 }
 
 // ==========================================
-// 3. SKRIN DASHBOARD UTAMA
+// 3. SKRIN DASHBOARD UTAMA (MENGGUNAKAN PARAS AIR & GRAF DINAMIK)
 // ==========================================
 class DashboardPage extends StatefulWidget {
   final String username;
@@ -370,9 +383,14 @@ class _DashboardPageState extends State<DashboardPage> {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   bool _isLoadingData = true;
-  double _temperature = 0.0;
+  double _waterLevel = 0.0;
   double _gasLevel = 0.0;
   bool _flameDetected = false;
+  String _statusHazard = 'NORMAL';
+
+  // Senarai Graf Masa Nyata
+  final List<FlSpot> _waterReadings = [];
+  int _timeStep = 0;
   Timer? _timer;
 
   final String baseUrl = 'https://tamper-neon-stays.ngrok-free.dev/api';
@@ -382,7 +400,7 @@ class _DashboardPageState extends State<DashboardPage> {
     super.initState();
     _initNotifications();
     _fetchSensorData();
-    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       _fetchSensorData();
     });
   }
@@ -413,20 +431,36 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _fetchSensorData() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/sensor-data'))
+          .get(Uri.parse('$baseUrl/sensor?api_key=SMHMS_SECRET_API_KEY_2026'))
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _temperature = (data['temperature'] ?? 28.0).toDouble();
-          _gasLevel = (data['gas_level'] ?? 150.0).toDouble();
-          _flameDetected = data['flame_detected'] ?? false;
-          _isLoadingData = false;
-        });
+        final result = jsonDecode(response.body);
+        if (result['status'] == 'success' && mounted) {
+          final data = result['data'];
+          double newWaterLevel = (data['water_level'] ?? 0.0).toDouble();
+          double newGasLevel = (data['gas_level'] ?? 0.0).toDouble();
+          bool newFlame = (data['fire_detected'] == 1);
+          String newHazard = data['status_hazard'] ?? 'NORMAL';
 
-        if (_flameDetected || _temperature > 50.0 || _gasLevel > 400.0) {
-          _showHazardNotification('AMARAN BAHAYA!', 'Sensor mengesan potensi bahaya di premis anda.');
+          setState(() {
+            _waterLevel = newWaterLevel;
+            _gasLevel = newGasLevel;
+            _flameDetected = newFlame;
+            _statusHazard = newHazard;
+            _isLoadingData = false;
+
+            // Kemaskini Data Graf Secara Dinamik
+            _timeStep++;
+            _waterReadings.add(FlSpot(_timeStep.toDouble(), _waterLevel));
+            if (_waterReadings.length > 10) {
+              _waterReadings.removeAt(0);
+            }
+          });
+
+          if (_statusHazard == 'DANGER' || _flameDetected) {
+            _showHazardNotification('AMARAN BAHAYA!', 'Sistem SMHMS mengesan bahaya aktif di premis.');
+          }
         }
       }
     } catch (e) {
@@ -458,7 +492,7 @@ class _DashboardPageState extends State<DashboardPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAlignment.start,
             children: [
               if (_isLoadingData)
                 Shimmer.fromColors(
@@ -484,19 +518,19 @@ class _DashboardPageState extends State<DashboardPage> {
                 children: [
                   Expanded(
                     child: _buildSensorCard(
-                      'Suhu',
-                      '$_temperature °C',
-                      Icons.thermostat,
-                      _temperature > 40 ? Colors.red : Colors.orange,
+                      'Paras Jarak Air',
+                      '$_waterLevel cm',
+                      Icons.water,
+                      _waterLevel <= 10.0 ? Colors.red : Colors.blue,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildSensorCard(
-                      'Gas (MQ-2)',
+                      'Gas / Asap',
                       '$_gasLevel PPM',
                       Icons.air,
-                      _gasLevel > 300 ? Colors.red : Colors.green,
+                      _gasLevel > 2500 ? Colors.red : Colors.green,
                     ),
                   ),
                 ],
@@ -511,7 +545,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
               const SizedBox(height: 24),
               const Text(
-                'Graf Suhu (24 Jam)',
+                'Graf Paras Air Masa Nyata (cm)',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -525,15 +559,13 @@ class _DashboardPageState extends State<DashboardPage> {
                     borderData: FlBorderData(show: true),
                     lineBarsData: [
                       LineChartBarData(
-                        spots: [
-                          const FlSpot(0, 25),
-                          const FlSpot(1, 27),
-                          const FlSpot(2, 26),
-                          FlSpot(3, _temperature),
-                        ],
+                        spots: _waterReadings.isEmpty
+                            ? [const FlSpot(0, 0)]
+                            : _waterReadings,
                         isCurved: true,
                         color: Colors.blue,
                         barWidth: 4,
+                        dotData: const FlDotData(show: true),
                       ),
                     ],
                   ),
@@ -547,7 +579,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildStatusBanner() {
-    bool isDanger = _flameDetected || _temperature > 50 || _gasLevel > 400;
+    bool isDanger = _statusHazard == 'DANGER' || _flameDetected;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -565,7 +597,7 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAlignment.start,
               children: [
                 Text(
                   isDanger ? 'AMARAN BAHAYA!' : 'Sistem Dalam Keadaan Selamat',
@@ -655,15 +687,15 @@ class AnalyticsPage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Taburan Ringkasan Bahaya',
+              'Ringkasan Amaran System',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             const Card(
               child: ListTile(
-                leading: Icon(Icons.warning, color: Colors.amber),
-                title: Text('Amaran Suhu Tinggi'),
-                trailing: Text('3 kali minggu ini'),
+                leading: Icon(Icons.water_damage, color: Colors.blue),
+                title: Text('Amaran Paras Air'),
+                trailing: Text('Aktif'),
               ),
             ),
             const Card(
@@ -681,61 +713,153 @@ class AnalyticsPage extends StatelessWidget {
 }
 
 // ==========================================
-// 5. SKRIN SEJARAH & REKOD LOG (HISTORY)
+// 5. SKRIN SEJARAH & REKOD LOG (HISTORY DINAMIK)
 // ==========================================
-class HistoryPage extends StatelessWidget {
+class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final List<Map<String, String>> logs = [
-      {
-        'title': 'Sistem Normal',
-        'desc': 'Semua sensor berjalan dengan baik.',
-        'time': 'Hari ini, 10:30 AM',
-        'type': 'info'
-      },
-      {
-        'title': 'Amaran Kebocoran Gas',
-        'desc': 'Gas MQ-2 melebihi paras 350 PPM.',
-        'time': 'Semalam, 04:15 PM',
-        'type': 'warning'
-      },
-      {
-        'title': 'Log Masuk Biometrik',
-        'desc': 'Pengguna log masuk melalui cap jari.',
-        'time': '25 Sep, 08:00 AM',
-        'type': 'info'
-      },
-    ];
+  State<HistoryPage> createState() => _HistoryPageState();
+}
 
+class _HistoryPageState extends State<HistoryPage> {
+  final String baseUrl = 'https://tamper-neon-stays.ngrok-free.dev/api';
+  List<dynamic> _logs = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLogs();
+  }
+
+  Future<void> _fetchLogs() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/sensor-logs'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _logs = data['logs'] ?? [];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Sejarah Log Amaran')),
-      body: ListView.builder(
-        itemCount: logs.length,
-        itemBuilder: (context, index) {
-          final log = logs[index];
-          bool isWarning = log['type'] == 'warning';
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: ListTile(
-              leading: Icon(
-                isWarning ? Icons.warning : Icons.info,
-                color: isWarning ? Colors.red : Colors.blue,
-              ),
-              title: Text(log['title']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('${log['desc']}\n${log['time']}'),
-              isThreeLine: true,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _logs.isEmpty
+              ? const Center(child: Text('Tiada rekod amaran dijumpai.'))
+              : RefreshIndicator(
+                  onRefresh: _fetchLogs,
+                  child: ListView.builder(
+                    itemCount: _logs.length,
+                    itemBuilder: (context, index) {
+                      final log = _logs[index];
+                      bool isDanger = log['status_hazard'] == 'DANGER';
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        child: ListTile(
+                          leading: Icon(
+                            isDanger ? Icons.warning : Icons.info,
+                            color: isDanger ? Colors.red : Colors.blue,
+                          ),
+                          title: Text('Status: ${log['status_hazard']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('Jarak: ${log['water_level']} cm | Gas: ${log['gas_level']} PPM\nMasa: ${log['created_at'] ?? 'Baru Sahaja'}'),
+                          isThreeLine: true,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+    );
+  }
+}
+
+// ==========================================
+// 6. SKRIN PROFIL PENGGUNA (PROFILE PAGE)
+// ==========================================
+class ProfilePage extends StatelessWidget {
+  final String username;
+  final String role;
+
+  const ProfilePage({super.key, required this.username, required this.role});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profil Pentadbir')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const CircleAvatar(
+              radius: 50,
+              backgroundColor: Color(0xFF1E88E5),
+              child: Icon(Icons.person, size: 60, color: Colors.white),
             ),
-          );
-        },
+            const SizedBox(height: 16),
+            Text(
+              username,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Peranan: ${role.toUpperCase()}',
+              style: const TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+            const SizedBox(height: 32),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.shield),
+                title: const Text('Akses Sistem'),
+                subtitle: Text(role == 'admin' ? 'Akses Penuh Pentadbir' : 'Akses Pemantauan'),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.verified_user),
+                title: const Text('Status Akaun'),
+                subtitle: const Text('Aktif & Disahkan'),
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushReplacementNamed(context, '/login');
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Log Keluar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
 }
 
 // ==========================================
-// 6. SKRIN TETAPAN (SETTINGS)
+// 7. SKRIN TETAPAN (SETTINGS)
 // ==========================================
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -775,10 +899,10 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
           const Divider(),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('Versi Aplikasi'),
-            subtitle: const Text('SMHMS v1.0.0 (FYP Project)'),
+          const ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text('Versi Aplikasi'),
+            subtitle: Text('SMHMS v1.0.0 (FYP Project)'),
           ),
         ],
       ),
