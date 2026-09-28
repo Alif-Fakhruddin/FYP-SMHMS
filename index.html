@@ -71,7 +71,7 @@
 
     <div class="chart-card">
       <div class="chart-header">
-        <h3>📊 Graf Trend Masa Nyata</h3>
+        <h3>📈 Graf Trend Masa Nyata</h3>
         <span class="live-dot-container"><span class="pulse-dot"></span> Live Data Stream</span>
       </div>
       <div class="chart-container">
@@ -79,7 +79,6 @@
       </div>
     </div>
 
-    <!-- Talian Kecemasan Simulasi (Disimpan Selamat Tanpa Panggilan Sebenar) -->
     <div class="table-card" style="margin-bottom: 20px;">
       <h3 style="margin-bottom: 10px; color: #ee5d50;">🚨 Talian Kecemasan Kampus</h3>
       <p style="font-size: 0.85rem; color: #707eae; margin-bottom: 12px;">Sila hubungi pihak kawalan keselamatan jika berlaku sebarang insiden:</p>
@@ -96,7 +95,8 @@
   </div>
 
   <script>
-    const API_URL = "http://localhost:5000/api/sensor?api_key=SMHMS_SECRET_API_KEY_2026";
+    // Tukar URL ini kepada pautan Ngrok atau Localhost Flask API anda
+    const API_URL = "https://tamper-neon-stays.ngrok-free.dev/api/sensor?api_key=SMHMS_SECRET_API_KEY_2026";
     let sensorChart;
     const maxDataPoints = 12;
 
@@ -154,7 +154,11 @@
 
     async function fetchRealtimeSensorData() {
       try {
-        const response = await fetch(API_URL);
+        const response = await fetch(API_URL, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true' // Mengelakkan halaman amaran Ngrok
+          }
+        });
         if (!response.ok) return;
 
         const result = await response.json();
@@ -184,8 +188,8 @@
           else { gasBadge.className = "badge badge-normal"; gasBadge.innerText = "NORMAL"; }
 
           const waterBadge = document.getElementById("waterBadge");
-          if (water <= 15) { waterBadge.className = "badge badge-danger"; waterBadge.innerText = "BAHAYA"; }
-          else if (water <= 30) { waterBadge.className = "badge badge-warning"; waterBadge.innerText = "AMARAN"; }
+          if (water <= 10) { waterBadge.className = "badge badge-danger"; waterBadge.innerText = "BAHAYA"; }
+          else if (water <= 20) { waterBadge.className = "badge badge-warning"; waterBadge.innerText = "AMARAN"; }
           else { waterBadge.className = "badge badge-normal"; waterBadge.innerText = "NORMAL"; }
 
           const overallStatusEl = document.getElementById("overallStatusText");

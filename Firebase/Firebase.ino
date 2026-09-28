@@ -7,22 +7,17 @@
 #include <Adafruit_SSD1306.h>
 
 // ==========================================
-// 1. TETAPAN TETAPAN UTAMA (UBAH DI SINI)
+// 1. TETAPAN UTAMA
 // ==========================================
 
 // Tetapan Wi-Fi / Hotspot
-const char* ssid = "ownerhotspot";        // Nama Wi-Fi / Hotspot
-const char* password = "adibsafwan";   // Kata laluan Wi-Fi
+const char* ssid = "abcd";           // Nama Wi-Fi / Hotspot
+const char* password = "12345678";   // Kata laluan Wi-Fi
 
-// URL Pelayan Flask (Gunakan SALAH SATU pilihan di bawah)
+// URL Pelayan Flask (Menggunakan Ngrok)
+const char* serverName = "https://tamper-neon-stays.ngrok-free.dev/api/sensor-data"; 
 
-// Pilihan A: Jika guna IP Laptop (Satu Rangkaian Wi-Fi)
-// const char* serverName = "http://192.168.1.15:5000/api/sensor-data"; 
-
-// Pilihan B: Jika guna URL Ngrok
-const char* serverName = "https://tamper-neon-stays.ngrok-free.app/api/sensor-data"; 
-
-// Kunci API Rahsia (Mesti sama dengan API_KEY di server Flask)
+// Kunci API Rahsia
 const char* apiKey = "SMHMS_SECRET_API_KEY_2026";
 
 // ==========================================
@@ -46,12 +41,9 @@ const int ledYellow = 4;     // LED Kuning (Awas)
 const int ledRed = 5;        // LED Merah (Bahaya)
 const int buzzerPin = 13;    // Buzzer
 
-// Jarak Tangki Air (cm) untuk kiraan paras air
-const float tankHeight = 20.0; 
-
-// Pembendung masa hantar data (Hantar setiap 3 saat)
+// Pemasa hantar data (Setiap 3 saat)
 unsigned long lastTime = 0;
-const unsigned long timerDelay = 3000;
+const unsigned long timerDelay = 30; 
 
 void setup() {
   Serial.begin(115200);
@@ -111,16 +103,18 @@ void loop() {
   if ((millis() - lastTime) > timerDelay) {
     if (WiFi.status() == WL_CONNECTED) {
       
+      // --------------------------------------------------
       // 1. BACA DATA SENSOR
+      // --------------------------------------------------
       
-      // Baca MQ135 (Gas)
+      // Baca MQ135 / MQ-2 (Gas)
       int gasLevel = analogRead(mqPin);
 
       // Baca Flame Sensor (Api: LOW = Ada Api, HIGH = Tiada Api)
       int flameRaw = digitalRead(flamePin);
       int fireDetected = (flameRaw == LOW) ? 1 : 0;
 
-      // Baca Ultrasonic (Paras Air)
+      // Baca Ultrasonic (BACAAN JARAK SAHAJA)
       digitalWrite(trigPin, LOW);
       delayMicroseconds(2);
       digitalWrite(trigPin, HIGH);
@@ -129,23 +123,25 @@ void loop() {
       
       long duration = pulseIn(echoPin, HIGH, 30000); // Timeout 30ms
       float distance = duration * 0.034 / 2.0;
-      
-      float waterLevel = tankHeight - distance;
-      if (waterLevel < 0) waterLevel = 0;
-      if (waterLevel > tankHeight) waterLevel = tankHeight;
 
-      // 2. PENENTUAN STATUS HAZARD & AMARAN AMERGENSI
+      // Jika tiada balasan echo / ralat
+      if (duration == 0 || distance < 0) {
+        distance = 0.0;
+      }
+
+      // --------------------------------------------------
+      // 2. LOGIK STATUS HAZARD & LED / BUZZER
+      // --------------------------------------------------
       String statusHazard = "NORMAL";
 
-      if (fireDetected == 1 || gasLevel > 2000 || waterLevel > 15.0) {
+      // Amaran jika ada Api, Gas > 3500, atau Objek terlalu dekat (Jarak <= 10.0 cm)
+      if (fireDetected == 1 || gasLevel > 3500 || (distance > 0 && distance <= 10.0)) {
         statusHazard = "DANGER";
         digitalWrite(ledRed, HIGH);
         digitalWrite(ledYellow, LOW);
         digitalWrite(ledGreen, LOW);
-        
-        // Bunyi Buzzer Amaran Bahaya
-        digitalWrite(buzzerPin, HIGH);
-      } else if (gasLevel > 1000 || waterLevel > 10.0) {
+        digitalWrite(buzzerPin, HIGH); // Buzzer Berbunyi
+      } else if (gasLevel > 2500 || (distance > 10.0 && distance <= 20.0)) {
         statusHazard = "WARNING";
         digitalWrite(ledRed, LOW);
         digitalWrite(ledYellow, HIGH);
@@ -159,29 +155,31 @@ void loop() {
         digitalWrite(buzzerPin, LOW);
       }
 
-      // 3. PAPARKAN BACAAN PADA OLED DISPLAY
+      // --------------------------------------------------
+      // 3. PAPARAN PADA SKRIN OLED
+      // --------------------------------------------------
       display.clearDisplay();
       display.setCursor(0, 0);
-      display.print("Status: "); display.println(statusHazard);
-      display.print("Air   : "); display.print(waterLevel, 1); display.println(" cm");
-      display.print("Gas   : "); display.print(gasLevel); display.println(" ppm");
-      display.print("Api   : "); display.println(fireDetected == 1 ? "DIKESAN!" : "Selamat");
+      display.print("Status : "); display.println(statusHazard);
+      display.print("Jarak  : "); display.print(distance, 1); display.println(" cm");
+      display.print("Gas    : "); display.print(gasLevel); display.println(" ppm");
+      display.print("Api    : "); display.println(fireDetected == 1 ? "DIKESAN!" : "Selamat");
       display.display();
 
-      // 4. HANTAR DATA KE SERVER FLASK VIA HTTP POST
-      
-      // Pengendalian SSL/TLS untuk elak Error -5
+      // --------------------------------------------------
+      // 4. HANTAR DATA KE FLASK (HTTP POST)
+      // --------------------------------------------------
       WiFiClientSecure client;
-      client.setInsecure(); // Abaikan semakan sijil SSL Ngrok
+      client.setInsecure(); // Abaikan semakan SSL Certificate Ngrok
 
       HTTPClient http;
       http.begin(client, serverName);
       http.addHeader("Content-Type", "application/json");
 
-      // Bina struktur format JSON
+      // Format JSON Payload (Menghantar jarak terus dalam field water_level)
       String jsonPayload = "{";
       jsonPayload += "\"api_key\":\"" + String(apiKey) + "\",";
-      jsonPayload += "\"water_level\":" + String(waterLevel, 2) + ",";
+      jsonPayload += "\"water_level\":" + String(distance, 2) + ",";
       jsonPayload += "\"gas_level\":" + String(gasLevel) + ",";
       jsonPayload += "\"fire_detected\":" + String(fireDetected) + ",";
       jsonPayload += "\"status_hazard\":\"" + statusHazard + "\"";
@@ -200,12 +198,12 @@ void loop() {
         Serial.println(response);
       } else {
         Serial.print("Ralat Hantar Data. Kod Error: ");
-        Serial.println(httpResponseCode); // Jika keluar -5, semak sambungan Wi-Fi atau Ngrok
+        Serial.println(httpResponseCode);
       }
 
-      http.end(); // Bebaskan sumber HTTP
+      http.end(); // Bebaskan memori HTTP
     } else {
-      Serial.println("Wi-Fi terputus! Mengubungi semula...");
+      Serial.println("Wi-Fi Terputus! Mengelak terputus sambungan...");
       WiFi.reconnect();
     }
 

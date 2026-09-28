@@ -22,19 +22,22 @@ def get_db_connection():
 # 1. API: Menerima & Menghantar Data Sensor (Menyokong /api/sensor & /api/sensor-data)
 # -------------------------------------------------------------
 @app.route('/api/sensor', methods=['GET', 'POST'])
-@app.route('/api/sensor-data', methods=['GET']) # Tambahan endpoint untuk Flutter
+@app.route('/api/sensor-data', methods=['GET', 'POST']) # Ditukar kepada ['GET', 'POST']
 def handle_sensor():
-    # Jika dipanggil dari Flutter tanpa API key, benarkan bacaan GET
-    key = request.args.get('api_key')
-    if request.method == 'POST' and key != API_KEY:
-        return jsonify({"status": "error", "message": "API Key tidak sah!"}), 403
-
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     # ESP32 menghantar data baharu (POST)
     if request.method == 'POST':
         data = request.json or {}
+        
+        # Semak API Key sama ada dari URL query (?api_key=...) atau dari JSON Body
+        key = request.args.get('api_key') or data.get('api_key')
+        if key != API_KEY:
+            cursor.close()
+            conn.close()
+            return jsonify({"status": "error", "message": "API Key tidak sah!"}), 403
+
         water = data.get('water_level', 0)
         gas = data.get('gas_level', 0)
         fire = data.get('fire_detected', 0)
@@ -54,7 +57,7 @@ def handle_sensor():
         
         cursor.close()
         conn.close()
-        return jsonify({"status": "success", "message": "Data berjaya disimpan ke MySQL!"})
+        return jsonify({"status": "success", "message": "Data berjaya disimpan ke MySQL!"}), 200
 
     # Frontend/Flutter mendapatkan bacaan terkini (GET)
     else:
@@ -105,7 +108,6 @@ def get_logs():
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json or {}
-    # Terima sama ada 'username' atau 'email' dari payload
     login_id = data.get('username') or data.get('email')
     password = data.get('password')
 
@@ -115,7 +117,6 @@ def login():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Semak sama ada padan dengan e-mel ATAU nama pengguna
     query = "SELECT name, email, role FROM users WHERE (email = %s OR name = %s) AND password = %s"
     cursor.execute(query, (login_id, login_id, password))
     user = cursor.fetchone()
@@ -160,5 +161,4 @@ def register():
         conn.close()
 
 if __name__ == '__main__':
-    # Membenarkan akses dari IP Luar / Mobile App pada Port 5000
     app.run(host='0.0.0.0', port=5000, debug=True)
