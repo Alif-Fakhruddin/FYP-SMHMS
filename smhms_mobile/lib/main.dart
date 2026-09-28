@@ -367,7 +367,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
 }
 
 // ==========================================
-// 3. SKRIN DASHBOARD UTAMA (MENGGUNAKAN PARAS AIR & GRAF DINAMIK)
+// 3. SKRIN DASHBOARD UTAMA
 // ==========================================
 class DashboardPage extends StatefulWidget {
   final String username;
@@ -388,7 +388,6 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _flameDetected = false;
   String _statusHazard = 'NORMAL';
 
-  // Senarai Graf Masa Nyata
   final List<FlSpot> _waterReadings = [];
   int _timeStep = 0;
   Timer? _timer;
@@ -450,7 +449,6 @@ class _DashboardPageState extends State<DashboardPage> {
             _statusHazard = newHazard;
             _isLoadingData = false;
 
-            // Kemaskini Data Graf Secara Dinamik
             _timeStep++;
             _waterReadings.add(FlSpot(_timeStep.toDouble(), _waterLevel));
             if (_waterReadings.length > 10) {
@@ -492,7 +490,7 @@ class _DashboardPageState extends State<DashboardPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_isLoadingData)
                 Shimmer.fromColors(
@@ -597,7 +595,7 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   isDanger ? 'AMARAN BAHAYA!' : 'Sistem Dalam Keadaan Selamat',
