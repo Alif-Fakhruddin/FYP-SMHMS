@@ -237,7 +237,7 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 // ==========================================
-// 2. NAVIGASI UTAMA (BOTTOM NAV & DRAWER WITH PROFILE)
+// 2. NAVIGASI UTAMA (BOTTOM NAV & DRAWER)
 // ==========================================
 class MainNavigationWrapper extends StatefulWidget {
   final String username;
@@ -367,7 +367,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
 }
 
 // ==========================================
-// 3. SKRIN DASHBOARD UTAMA
+// 3. SKRIN DASHBOARD UTAMA (PARAS AIR & GRAF AIR)
 // ==========================================
 class DashboardPage extends StatefulWidget {
   final String username;
